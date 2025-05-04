@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Student Register Book{% endblock %}
+
+{% block header %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Filter Dashboard Data</h5>
+            </div>
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('dashboard') }}" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="academic_year_id" class="form-label">Academic Year</label>
+                        <select class="form-select" id="academic_year_id" name="academic_year_id">
+                            <option value="">All Academic Years</option>
+                            {% for year in academic_years %}
+                            <option value="{{ year.id }}" {% if selected_academic_year and selected_academic_year.id == year.id %}selected{% endif %}>
+                                {{ year.semester }} {{ year.year }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">Apply Filter</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title">Total Students</h6>
+                        <h2 class="mb-0">{{ total_students }}</h2>
+                    </div>
+                    <i class="fas fa-users fa-3x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title">Lab Slots</h6>
+                        <h2 class="mb-0">{{ total_lab_slots }}</h2>
+                    </div>
+                    <i class="fas fa-calendar-alt fa-3x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title">Total Absences</h6>
+                        <h2 class="mb-0">{{ absences }}</h2>
+                    </div>
+                    <i class="fas fa-user-times fa-3x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Lab Slots by Academic Year</h5>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="academicYearAccordion">
+                    {% for year, lab_slots in lab_slots_by_academic_year.items() %}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading{{ loop.index }}">
+                            <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}" aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="collapse{{ loop.index }}">
+                                {{ year }} - {{ lab_slots|length }} Lab Slots
+                            </button>
+                        </h2>
+                        <div id="collapse{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" aria-labelledby="heading{{ loop.index }}" data-bs-parent="#academicYearAccordion">
+                            <div class="accordion-body">
+                                <div class="list-group">
+                                    {% for lab_slot in lab_slots %}
+                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                        {{ lab_slot.name }}
+                                        <div>
+                                            <span class="badge bg-primary rounded-pill me-2">{{ lab_slot.student_count }} students</span>
+                                            <span class="badge bg-danger rounded-pill">{{ lab_slot.absences_count }} absences</span>
+                                        </div>
+                                    </div>
+                                    {% else %}
+                                    <div class="list-group-item">No lab slots found for this academic year.</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">No academic years found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Team Distribution</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="teamDistributionChart"></canvas>
+                {% if not team_counts %}
+                <div class="alert alert-info mt-3">No team data available to display.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Absences by Lab Slot</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="absencesChart"></canvas>
+                {% if not absences_by_lab %}
+                <div class="alert alert-info mt-3">No absence data available to display.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Prepare chart data outside the template loops
+    var teamLabels = [{% for tc in team_counts %}"{{ tc.name }}"{% if not loop.last %}, {% endif %}{% endfor %}];
+    var teamData = [{% for tc in team_counts %}{{ tc.count }}{% if not loop.last %}, {% endif %}{% endfor %}];
+    
+    var absenceLabels = [{% for ab in absences_by_lab %}"{{ ab.lab_name }}"{% if not loop.last %}, {% endif %}{% endfor %}];
+    var absenceData = [{% for ab in absences_by_lab %}{{ ab.absent_count }}{% if not loop.last %}, {% endif %}{% endfor %}];
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Simple helper to create charts without template issues
+        function createChart(elementId, type, labels, data, options) {
+            const ctx = document.getElementById(elementId);
+            if (!ctx) return;
+            
+            new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: data
+                },
+                options: options
+            });
+        }
+        
+        // Team distribution chart
+        if (teamLabels.length > 0) {
+            createChart('teamDistributionChart', 'pie', 
+                teamLabels,
+                [{
+                    label: 'Number of Teams',
+                    data: teamData,
+                    backgroundColor: [
+                        'rgba(75, 192, 192, 0.2)',
+                        'rgba(54, 162, 235, 0.2)',
+                        'rgba(153, 102, 255, 0.2)',
+                        'rgba(255, 159, 64, 0.2)',
+                        'rgba(255, 99, 132, 0.2)',
+                        'rgba(201, 203, 207, 0.2)'
+                    ],
+                    borderColor: [
+                        'rgb(75, 192, 192)',
+                        'rgb(54, 162, 235)',
+                        'rgb(153, 102, 255)',
+                        'rgb(255, 159, 64)',
+                        'rgb(255, 99, 132)',
+                        'rgb(201, 203, 207)'
+                    ],
+                    borderWidth: 1
+                }],
+                {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        },
+                        title: {
+                            display: false,
+                            text: 'Team Distribution'
+                        }
+                    }
+                }
+            );
+        }
+        
+        // Absences by lab slot chart
+        if (absenceLabels.length > 0) {
+            createChart('absencesChart', 'bar',
+                absenceLabels,
+                [{
+                    label: 'Number of Absences',
+                    data: absenceData,
+                    backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                    borderColor: 'rgb(255, 99, 132)',
+                    borderWidth: 1
+                }],
+                {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Absences by Lab Slot'
+                        }
+                    }
+                }
+            );
+        }
+    });
+</script>
+{% endblock %} 

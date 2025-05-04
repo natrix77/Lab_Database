@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Register Book</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="#"><i class="bi bi-book"></i> Student Register Book</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#dashboard">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#features">Features</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#installation">Installation</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#demo">Demo</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://github.com/natrix77/Lab_Database" target="_blank">
+                            <i class="bi bi-github"></i> GitHub
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="text-center mb-5">
+            <h1 class="display-4">Student Register Book</h1>
+            <p class="lead">A web application for managing lab students, teams, attendance, and grades.</p>
+            <div class="mt-4">
+                <a href="https://github.com/natrix77/Lab_Database" class="btn btn-primary btn-lg me-3">
+                    <i class="bi bi-github"></i> View on GitHub
+                </a>
+                <a href="#installation" class="btn btn-outline-secondary btn-lg">
+                    <i class="bi bi-download"></i> Installation
+                </a>
+            </div>
+        </header>
+
+        <section id="dashboard" class="mb-5">
+            <h2 class="mb-4">Dashboard</h2>
+            <div class="row">
+                <div class="col-md-8 offset-md-2">
+                    <img src="images/dashboard-mockup.png" alt="Dashboard Screenshot" class="img-fluid rounded shadow">
+                </div>
+            </div>
+        </section>
+
+        <section id="features" class="mb-5">
+            <h2 class="mb-4">Features</h2>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-people"></i> Student Management</h5>
+                            <ul class="list-unstyled">
+                                <li>Import students from Excel files</li>
+                                <li>Assign students to teams</li>
+                                <li>View student details</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-calendar-check"></i> Attendance Tracking</h5>
+                            <ul class="list-unstyled">
+                                <li>Record attendance for lab sessions</li>
+                                <li>Track student absences</li>
+                                <li>Generate attendance reports</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-graph-up"></i> Grade Management</h5>
+                            <ul class="list-unstyled">
+                                <li>Insert and manage grades</li>
+                                <li>Calculate final grades</li>
+                                <li>Export data to Excel</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="installation" class="mb-5">
+            <h2 class="mb-4">Installation</h2>
+            <div class="card">
+                <div class="card-body">
+                    <ol>
+                        <li>Make sure you have Python 3.8+ installed</li>
+                        <li>Clone this repository:
+                            <pre><code>git clone https://github.com/natrix77/Lab_Database.git
+cd Lab_Database</code></pre>
+                        </li>
+                        <li>Create a virtual environment:
+                            <pre><code>python -m venv venv</code></pre>
+                        </li>
+                        <li>Activate the virtual environment:
+                            <ul>
+                                <li>Windows: <code>venv\Scripts\activate</code></li>
+                                <li>macOS/Linux: <code>source venv/bin/activate</code></li>
+                            </ul>
+                        </li>
+                        <li>Install dependencies:
+                            <pre><code>pip install -r requirements-web.txt</code></pre>
+                        </li>
+                        <li>Run the Flask application:
+                            <pre><code>python app.py</code></pre>
+                        </li>
+                        <li>Open your browser and navigate to <code>http://127.0.0.1:5000</code></li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <section id="demo" class="mb-5">
+            <h2 class="mb-4">Demo</h2>
+            <div class="alert alert-info">
+                <p>This is a static demo of the application. For full functionality, please install the application locally.</p>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">Academic Year Management</div>
+                        <div class="card-body">
+                            <img src="images/academic-year-mockup.png" alt="Academic Year Management" class="img-fluid rounded">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">Team Assignment</div>
+                        <div class="card-body">
+                            <img src="images/teams-mockup.png" alt="Team Assignment" class="img-fluid rounded">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">Attendance Tracking</div>
+                        <div class="card-body">
+                            <img src="images/attendance-mockup.png" alt="Attendance Tracking" class="img-fluid rounded">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">Grade Management</div>
+                        <div class="card-body">
+                            <img src="images/grades-mockup.png" alt="Grade Management" class="img-fluid rounded">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer class="bg-light py-4 mt-5">
+        <div class="container text-center">
+            <p>&copy; 2024 Student Register Book. Licensed under MIT.</p>
+            <p>
+                <a href="https://github.com/natrix77/Lab_Database" class="text-decoration-none me-3">
+                    <i class="bi bi-github"></i> GitHub
+                </a>
+                <a href="#" class="text-decoration-none">
+                    <i class="bi bi-arrow-up-circle"></i> Back to top
+                </a>
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html> 

@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Insert Grades - {{ lab_slot.name }} - {{ exercise_slot }} - Student Register Book{% endblock %}
+
+{% block header %}Insert Grades - {{ lab_slot.name }} - {{ exercise_slot }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Grades for {{ academic_year.semester }} {{ academic_year.year }}</h5>
+                <div>
+                    <a href="{{ url_for('grades_index') }}" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-arrow-left me-1"></i> Back
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('grades_save') }}">
+                    <input type="hidden" name="academic_year_id" value="{{ academic_year.id }}">
+                    <input type="hidden" name="lab_slot_id" value="{{ lab_slot.id }}">
+                    <input type="hidden" name="exercise_slot" value="{{ exercise_slot }}">
+                    
+                    <div class="mb-3">
+                        <div class="row mb-2">
+                            <div class="col-md-6">
+                                <label for="default_grade" class="form-label">Default Grade</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="default_grade" min="0" max="10" step="0.5" value="0">
+                                    <button type="button" class="btn btn-primary" id="applyDefaultGrade">Apply to All</button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="import_file" class="form-label">Import Grades</label>
+                                <div class="input-group">
+                                    <input type="file" class="form-control" id="import_file" accept=".xlsx, .xls, .csv">
+                                    <button type="button" class="btn btn-success" id="importGrades">Import</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Team</th>
+                                    <th>Student ID</th>
+                                    <th>Name</th>
+                                    <th>Grade</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in students %}
+                                <tr>
+                                    <td>{{ student.team_number|default('—', true) }}</td>
+                                    <td>{{ student.student_id }}</td>
+                                    <td>{{ student.name }}</td>
+                                    <td>
+                                        <input type="number" class="form-control student-grade" name="grade_{{ student.student_id }}" 
+                                               min="0" max="10" step="0.5" value="{{ student.grade|default(0, true) }}">
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center">No students found in this lab slot.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <button type="submit" class="btn btn-primary">Save Grades</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Apply default grade to all students
+        const defaultGradeInput = document.getElementById('default_grade');
+        const applyDefaultBtn = document.getElementById('applyDefaultGrade');
+        const gradeInputs = document.querySelectorAll('.student-grade');
+        
+        applyDefaultBtn.addEventListener('click', function() {
+            const defaultGrade = defaultGradeInput.value;
+            gradeInputs.forEach(input => {
+                input.value = defaultGrade;
+            });
+        });
+        
+        // Implement the import grades function (placeholder)
+        const importFileInput = document.getElementById('import_file');
+        const importGradesBtn = document.getElementById('importGrades');
+        
+        importGradesBtn.addEventListener('click', function() {
+            if (!importFileInput.files || importFileInput.files.length === 0) {
+                alert('Please select a file to import.');
+                return;
+            }
+            
+            // This would actually be handled by a server-side endpoint
+            alert('Grade import would be processed here. This is a placeholder for the real functionality.');
+        });
+    });
+</script>
+{% endblock %} 

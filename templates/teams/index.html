@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Assign Teams - Student Register Book{% endblock %}
+
+{% block header %}Assign Teams{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Select Academic Year and Lab Slot</h5>
+            </div>
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('teams_assign') }}" class="row g-3">
+                    <div class="col-md-5">
+                        <label for="academic_year_id" class="form-label">Academic Year</label>
+                        <select class="form-select" id="academic_year_id" name="academic_year_id" required>
+                            <option value="" selected disabled>Select an academic year</option>
+                            {% for year in academic_years %}
+                            <option value="{{ year.id }}">{{ year.semester }} {{ year.year }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <label for="lab_slot_id" class="form-label">Lab Slot</label>
+                        <select class="form-select" id="lab_slot_id" name="lab_slot_id" required>
+                            <option value="" selected disabled>Select a lab slot</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">Select</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Existing Team Assignments</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Academic Year</th>
+                                <th>Lab Slot</th>
+                                <th>Teams</th>
+                                <th>Students</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for slot in lab_slots_with_teams %}
+                            <tr>
+                                <td>{{ slot.academic_year_semester }} {{ slot.academic_year_year }}</td>
+                                <td>{{ slot.name }}</td>
+                                <td>{{ slot.team_count }}</td>
+                                <td>{{ slot.student_count }}</td>
+                                <td>
+                                    <a href="{{ url_for('teams_show', academic_year_id=slot.academic_year_id, lab_slot_id=slot.id) }}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center">No team assignments found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const academicYearSelect = document.getElementById('academic_year_id');
+        const labSlotSelect = document.getElementById('lab_slot_id');
+        
+        academicYearSelect.addEventListener('change', function() {
+            const academicYearId = this.value;
+            if (academicYearId) {
+                // Clear current options
+                labSlotSelect.innerHTML = '<option value="" selected disabled>Select a lab slot</option>';
+                
+                // Fetch lab slots for the selected academic year
+                fetch(`/api/lab_slots?academic_year_id=${academicYearId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.lab_slots && data.lab_slots.length > 0) {
+                            data.lab_slots.forEach(slot => {
+                                const option = document.createElement('option');
+                                option.value = slot.id;
+                                option.textContent = slot.name;
+                                labSlotSelect.appendChild(option);
+                            });
+                        } else {
+                            labSlotSelect.innerHTML = '<option value="" selected disabled>No lab slots found</option>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching lab slots:', error);
+                        labSlotSelect.innerHTML = '<option value="" selected disabled>Error loading lab slots</option>';
+                    });
+            }
+        });
+    });
+</script>
+{% endblock %} 

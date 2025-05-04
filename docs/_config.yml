@@ -1,0 +1,7 @@
+theme: jekyll-theme-cayman
+title: Student Register Book
+description: A web application for managing lab students, teams, attendance, and grades
+show_downloads: true
+github:
+  is_project_page: true
+  repository_url: https://github.com/natrix77/Lab_Database 

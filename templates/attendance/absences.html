@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+
+{% block title %}Absences & Replenishment Scheduling - Student Register Book{% endblock %}
+
+{% block header %}Absences & Replenishment Scheduling{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    {% if academic_year %}
+                    Absences for {{ academic_year.semester }} {{ academic_year.year }}
+                    {% else %}
+                    Select Academic Year
+                    {% endif %}
+                </h5>
+                <div>
+                    {% if academic_year and absences %}
+                    <a href="{{ url_for('export_absences', academic_year_id=academic_year.id) }}" class="btn btn-success btn-sm me-2">
+                        <i class="fas fa-file-excel me-1"></i> Export to Excel
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('attendance_index') }}" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-arrow-left me-1"></i> Back to Attendance
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if not academic_year %}
+                <form method="GET" action="{{ url_for('attendance_absences') }}" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="academic_year_id" class="form-label">Academic Year</label>
+                        <select class="form-select" id="academic_year_id" name="academic_year_id" required>
+                            <option value="" selected disabled>Select an academic year</option>
+                            {% for year in academic_years %}
+                            <option value="{{ year.id }}">{{ year.semester }} {{ year.year }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">View Absences</button>
+                    </div>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if academic_year %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Students with Absences</h5>
+            </div>
+            <div class="card-body">
+                {% if absences %}
+                {% set failed_students = [] %}
+                {% for absence in absences %}
+                    {% if absence.has_failed and absence.student_id not in failed_students %}
+                        {% set _ = failed_students.append(absence.student_id) %}
+                    {% endif %}
+                {% endfor %}
+                
+                {% if failed_students|length > 0 %}
+                <div class="alert alert-danger mb-4">
+                    <h5><i class="fas fa-exclamation-triangle me-2"></i>Failed Students</h5>
+                    <p>There are <strong>{{ failed_students|length }}</strong> students who have failed the lab due to having 2 or more absences.</p>
+                    <p class="mb-0">Failed students are highlighted in red in the table below.</p>
+                </div>
+                {% endif %}
+                
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Student ID</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Lab Slot</th>
+                                <th>Exercise</th>
+                                <th>Date</th>
+                                <th>Replenishment Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for absence in absences %}
+                            <tr {% if absence.has_failed %}class="table-danger"{% endif %}>
+                                <td>{{ absence.student_id }}</td>
+                                <td>
+                                    {{ absence.student_name }}
+                                    {% if absence.has_failed %}
+                                    <span class="badge bg-danger ms-1" title="This student has failed the lab due to {{ absence.absence_count }} absences">FAILED</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ absence.student_email }}</td>
+                                <td>{{ absence.lab_slot_name }}</td>
+                                <td>{{ absence.exercise_slot }}</td>
+                                <td>{{ absence.timestamp }}</td>
+                                <td>
+                                    <div id="note-display-{{ absence.id }}" class="note-display">
+                                        {% if absence.replenishment_note %}
+                                            <span class="badge bg-success">Scheduled</span>
+                                            {% set note_parts = absence.replenishment_note.split(' | ') %}
+                                            {% if note_parts|length >= 2 %}
+                                                <div class="mt-1 small">
+                                                    <strong>Lab Slot:</strong> {{ note_parts[0] }}<br>
+                                                    <strong>Date:</strong> {{ note_parts[1] }}
+                                                    {% if note_parts|length > 2 %}
+                                                        <br><strong>Notes:</strong> {{ note_parts[2] }}
+                                                    {% endif %}
+                                                </div>
+                                            {% else %}
+                                                <small class="d-block mt-1">{{ absence.replenishment_note }}</small>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">Not Scheduled</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <button 
+                                        class="btn btn-primary btn-sm edit-note-btn" 
+                                        data-attendance-id="{{ absence.id }}"
+                                        data-note="{{ absence.replenishment_note or '' }}"
+                                        data-student-name="{{ absence.student_name }}"
+                                        data-exercise-slot="{{ absence.exercise_slot }}"
+                                    >
+                                        <i class="fas fa-calendar-plus"></i> Schedule
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> No absences found for the selected academic year.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for editing replenishment notes -->
+<div class="modal fade" id="replenishmentModal" tabindex="-1" aria-labelledby="replenishmentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="replenishmentModalLabel">Schedule Replenishment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="replenishmentForm">
+                    <input type="hidden" id="attendance_id" name="attendance_id">
+                    <div class="mb-3">
+                        <label for="student_info" class="form-label">Student</label>
+                        <input type="text" class="form-control" id="student_info" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="replenishment_slot" class="form-label">Replenishment Lab Slot</label>
+                        <select class="form-select" id="replenishment_slot" name="replenishment_slot" required>
+                            <option value="" selected disabled>Select a lab slot for replenishment</option>
+                            {% for lab_slot in lab_slots %}
+                            <option value="{{ lab_slot.name }}">{{ lab_slot.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="replenishment_date" class="form-label">Replenishment Date</label>
+                        <input type="date" class="form-control" id="replenishment_date" name="replenishment_date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="additional_notes" class="form-label">Additional Notes</label>
+                        <textarea class="form-control" id="additional_notes" name="additional_notes" rows="2" placeholder="Any additional information"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveNoteBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Setup modal for editing notes
+        const replenishmentModal = new bootstrap.Modal(document.getElementById('replenishmentModal'));
+        const editNoteBtns = document.querySelectorAll('.edit-note-btn');
+        const attendanceIdInput = document.getElementById('attendance_id');
+        const studentInfoInput = document.getElementById('student_info');
+        const replenishmentSlotSelect = document.getElementById('replenishment_slot');
+        const replenishmentDateInput = document.getElementById('replenishment_date');
+        const additionalNotesInput = document.getElementById('additional_notes');
+        const saveNoteBtn = document.getElementById('saveNoteBtn');
+        
+        // Set default date to today
+        const today = new Date();
+        const formattedDate = today.toISOString().substr(0, 10);
+        replenishmentDateInput.value = formattedDate;
+        
+        // Add click handlers to edit buttons
+        editNoteBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const attendanceId = this.dataset.attendanceId;
+                const note = this.dataset.note;
+                const studentName = this.dataset.studentName;
+                const exerciseSlot = this.dataset.exerciseSlot;
+                
+                attendanceIdInput.value = attendanceId;
+                studentInfoInput.value = studentName + ' - ' + exerciseSlot;
+                
+                // Parse existing note if available
+                if (note) {
+                    try {
+                        const noteData = note.split(' | ');
+                        if (noteData.length >= 2) {
+                            // Format expected: "Lab Slot | Date | Additional Notes"
+                            const slot = noteData[0];
+                            const date = noteData[1];
+                            const additionalNotes = noteData.length > 2 ? noteData[2] : '';
+                            
+                            // Set values in form
+                            for (let i = 0; i < replenishmentSlotSelect.options.length; i++) {
+                                if (replenishmentSlotSelect.options[i].value === slot) {
+                                    replenishmentSlotSelect.selectedIndex = i;
+                                    break;
+                                }
+                            }
+                            
+                            if (date) {
+                                replenishmentDateInput.value = date;
+                            }
+                            
+                            additionalNotesInput.value = additionalNotes;
+                        } else {
+                            // Old format or unstructured note
+                            additionalNotesInput.value = note;
+                        }
+                    } catch (e) {
+                        console.error('Error parsing note:', e);
+                        additionalNotesInput.value = note;
+                    }
+                } else {
+                    // Reset form
+                    replenishmentSlotSelect.selectedIndex = 0;
+                    replenishmentDateInput.value = formattedDate;
+                    additionalNotesInput.value = '';
+                }
+                
+                replenishmentModal.show();
+            });
+        });
+        
+        // Handle saving the note
+        saveNoteBtn.addEventListener('click', function() {
+            const attendanceId = attendanceIdInput.value;
+            const labSlot = replenishmentSlotSelect.value;
+            const replenishmentDate = replenishmentDateInput.value;
+            const additionalNotes = additionalNotesInput.value.trim();
+            
+            if (!labSlot || !replenishmentDate) {
+                alert('Please select a lab slot and date for the replenishment.');
+                return;
+            }
+            
+            // Format the note in a structured way
+            const formattedNote = `${labSlot} | ${replenishmentDate}${additionalNotes ? ' | ' + additionalNotes : ''}`;
+            
+            fetch('/attendance/save_note/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    'attendance_id': attendanceId,
+                    'replenishment_note': formattedNote
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Update the UI
+                    const noteDisplay = document.getElementById(`note-display-${attendanceId}`);
+                    
+                    // Format display with structured HTML
+                    const noteParts = formattedNote.split(' | ');
+                    let displayHTML = `<span class="badge bg-success">Scheduled</span>`;
+                    
+                    if (noteParts.length >= 2) {
+                        displayHTML += `
+                            <div class="mt-1 small">
+                                <strong>Lab Slot:</strong> ${noteParts[0]}<br>
+                                <strong>Date:</strong> ${noteParts[1]}
+                        `;
+                        
+                        if (noteParts.length > 2) {
+                            displayHTML += `<br><strong>Notes:</strong> ${noteParts[2]}`;
+                        }
+                        
+                        displayHTML += `</div>`;
+                    } else {
+                        displayHTML += `<small class="d-block mt-1">${formattedNote}</small>`;
+                    }
+                    
+                    noteDisplay.innerHTML = displayHTML;
+                    
+                    // Update the data attribute for the edit button
+                    const editBtn = document.querySelector(`.edit-note-btn[data-attendance-id="${attendanceId}"]`);
+                    editBtn.dataset.note = formattedNote;
+                    
+                    // Close the modal
+                    replenishmentModal.hide();
+                    
+                    // Show success message
+                    alert('Replenishment scheduled successfully');
+                } else {
+                    alert('Error saving schedule: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while saving the schedule');
+            });
+        });
+    });
+</script>
+{% endblock %} 

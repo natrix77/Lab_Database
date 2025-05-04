@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Record Attendance - {{ lab_slot.name }} - {{ exercise_slot }} - Student Register Book{% endblock %}
+
+{% block header %}Record Attendance - {{ lab_slot.name }} - {{ exercise_slot }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Attendance for {{ academic_year.semester }} {{ academic_year.year }}</h5>
+                <div>
+                    <a href="{{ url_for('attendance_index') }}" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-arrow-left me-1"></i> Back
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('attendance_save') }}">
+                    <input type="hidden" name="academic_year_id" value="{{ academic_year.id }}">
+                    <input type="hidden" name="lab_slot_id" value="{{ lab_slot.id }}">
+                    <input type="hidden" name="exercise_slot" value="{{ exercise_slot }}">
+                    
+                    <div class="mb-3">
+                        <div class="row mb-2">
+                            <div class="col-6">
+                                <button type="button" class="btn btn-success w-100" id="markAllPresent">
+                                    <i class="fas fa-check me-1"></i> Mark All Present
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button type="button" class="btn btn-danger w-100" id="markAllAbsent">
+                                    <i class="fas fa-times me-1"></i> Mark All Absent
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Team</th>
+                                    <th>Student ID</th>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in students %}
+                                <tr>
+                                    <td>{{ student.team_number|default('—', true) }}</td>
+                                    <td>{{ student.student_id }}</td>
+                                    <td>{{ student.name }}</td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <input type="radio" class="btn-check status-present" name="status_{{ student.student_id }}" 
+                                                id="present_{{ student.student_id }}" value="Present" 
+                                                {% if student.status == 'Present' %}checked{% endif %}>
+                                            <label class="btn btn-outline-success" for="present_{{ student.student_id }}">Present</label>
+                                            
+                                            <input type="radio" class="btn-check status-absent" name="status_{{ student.student_id }}" 
+                                                id="absent_{{ student.student_id }}" value="Absent" 
+                                                {% if student.status == 'Absent' %}checked{% endif %}>
+                                            <label class="btn btn-outline-danger" for="absent_{{ student.student_id }}">Absent</label>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center">No students found in this lab slot.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <button type="submit" class="btn btn-primary">Save Attendance</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle "Mark All Present" button
+        const markAllPresentBtn = document.getElementById('markAllPresent');
+        markAllPresentBtn.addEventListener('click', function() {
+            document.querySelectorAll('.status-present').forEach(radio => {
+                radio.checked = true;
+            });
+        });
+        
+        // Handle "Mark All Absent" button
+        const markAllAbsentBtn = document.getElementById('markAllAbsent');
+        markAllAbsentBtn.addEventListener('click', function() {
+            document.querySelectorAll('.status-absent').forEach(radio => {
+                radio.checked = true;
+            });
+        });
+    });
+</script>
+{% endblock %} 

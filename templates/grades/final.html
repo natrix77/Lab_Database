@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}Final Grades - Student Register Book{% endblock %}
+
+{% block header %}Final Grades{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Select Academic Year</h5>
+            </div>
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('grades_final') }}" class="row g-3">
+                    <div class="col-md-10">
+                        <select class="form-select" id="academic_year_id" name="academic_year_id" required>
+                            <option value="" selected disabled>Select an academic year</option>
+                            {% for year in academic_years %}
+                            <option value="{{ year.id }}" {% if selected_year_id == year.id %}selected{% endif %}>{{ year.semester }} {{ year.year }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">Select</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if selected_year_id %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Final Grades for {{ selected_year.semester }} {{ selected_year.year }}</h5>
+                <div>
+                    <a href="{{ url_for('grades_index') }}" class="btn btn-secondary btn-sm me-2">
+                        <i class="fas fa-arrow-left me-1"></i> Back to Grades
+                    </a>
+                    <button type="button" class="btn btn-success btn-sm" id="calculateFinalGrades">
+                        <i class="fas fa-calculator me-1"></i> Calculate Final Grades
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" id="exportFinalGrades">
+                        <i class="fas fa-file-export me-1"></i> Export Final Grades
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Student ID</th>
+                                <th>Name</th>
+                                <th>Lab Average</th>
+                                <th>June Exam</th>
+                                <th>September Exam</th>
+                                <th>Final Grade</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for student in final_grades %}
+                            <tr>
+                                <td>{{ student.student_id }}</td>
+                                <td>{{ student.name }}</td>
+                                <td>{{ student.lab_average|default('—', true) }}</td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm june-exam-grade" 
+                                           data-student-id="{{ student.student_id }}" 
+                                           min="0" max="10" step="0.5" 
+                                           value="{{ student.jun_exam_grade|default('', true) }}">
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm sep-exam-grade" 
+                                           data-student-id="{{ student.student_id }}" 
+                                           min="0" max="10" step="0.5" 
+                                           value="{{ student.sep_exam_grade|default('', true) }}">
+                                </td>
+                                <td>
+                                    <span class="final-grade">{{ student.final_grade|default('—', true) }}</span>
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-info save-student-grades" data-student-id="{{ student.student_id }}">
+                                        <i class="fas fa-save"></i> Save
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center">No students found for this academic year.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Final Grades Distribution</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <canvas id="finalGradesChart" height="300"></canvas>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h5 class="card-title">Statistics</h5>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        Total Students
+                                        <span class="badge bg-primary rounded-pill">{{ grade_stats.total }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        Passed Students
+                                        <span class="badge bg-success rounded-pill">{{ grade_stats.passed }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        Failed Students
+                                        <span class="badge bg-danger rounded-pill">{{ grade_stats.failed }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        Average Grade
+                                        <span class="badge bg-info rounded-pill">{{ grade_stats.average|round(2) }}</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // If there's a selected year, initialize the chart
+        {% if selected_year_id and grade_stats %}
+        // Render final grades chart
+        const ctx = document.getElementById('finalGradesChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['0-1', '1-2', '2-3', '3-4', '4-5', '5-6', '6-7', '7-8', '8-9', '9-10'],
+                datasets: [{
+                    label: 'Number of Students',
+                    data: {{ grade_stats.distribution|tojson }},
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(255, 159, 64, 0.7)',
+                        'rgba(255, 205, 86, 0.7)',
+                        'rgba(255, 205, 86, 0.7)',
+                        'rgba(255, 205, 86, 0.7)',
+                        'rgba(75, 192, 192, 0.7)',
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(153, 102, 255, 0.7)',
+                        'rgba(201, 203, 207, 0.7)',
+                        'rgba(40, 167, 69, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(255, 159, 64, 1)',
+                        'rgba(255, 205, 86, 1)',
+                        'rgba(255, 205, 86, 1)',
+                        'rgba(255, 205, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(153, 102, 255, 1)',
+                        'rgba(201, 203, 207, 1)',
+                        'rgba(40, 167, 69, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'Final Grades Distribution'
+                    }
+                }
+            }
+        });
+        
+        // Save individual student grades
+        const saveButtons = document.querySelectorAll('.save-student-grades');
+        saveButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const studentId = this.getAttribute('data-student-id');
+                const juneExamGrade = document.querySelector(`.june-exam-grade[data-student-id="${studentId}"]`).value;
+                const sepExamGrade = document.querySelector(`.sep-exam-grade[data-student-id="${studentId}"]`).value;
+                
+                // Send data to server (placeholder)
+                fetch('/api/final_grades/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        academic_year_id: {{ selected_year_id|tojson }},
+                        student_id: studentId,
+                        jun_exam_grade: juneExamGrade,
+                        sep_exam_grade: sepExamGrade
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update the final grade display
+                        const finalGradeElement = button.closest('tr').querySelector('.final-grade');
+                        finalGradeElement.textContent = data.final_grade || '—';
+                        
+                        // Show success message
+                        alert('Grades saved successfully!');
+                    } else {
+                        alert('Error saving grades: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while saving grades.');
+                });
+            });
+        });
+        
+        // Calculate final grades for all students
+        const calculateFinalGradesBtn = document.getElementById('calculateFinalGrades');
+        calculateFinalGradesBtn.addEventListener('click', function() {
+            // Placeholder - would be replaced with real API call
+            alert('This would calculate final grades for all students based on lab average and exam grades.');
+        });
+        
+        // Export final grades
+        const exportFinalGradesBtn = document.getElementById('exportFinalGrades');
+        exportFinalGradesBtn.addEventListener('click', function() {
+            window.location.href = `/export/final_grades/${{{ selected_year_id|tojson }}}`;
+        });
+        {% endif %}
+    });
+</script>
+{% endblock %} 

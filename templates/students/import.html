@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Import Students - Student Register Book{% endblock %}
+
+{% block header %}Import Students{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Import Students from Excel</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="academic_year_id" class="form-label">Academic Year</label>
+                        <select class="form-select" id="academic_year_id" name="academic_year_id" required>
+                            <option value="" selected disabled>Select an academic year</option>
+                            {% for year in academic_years %}
+                            <option value="{{ year.id }}">{{ year.semester }} {{ year.year }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Excel File</label>
+                        <input type="file" class="form-control" id="file" name="file" accept=".xlsx, .xls" required>
+                        <div class="form-text">
+                            Please upload an Excel file with student data.
+                        </div>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="replace_data" name="replace_data">
+                        <label class="form-check-label" for="replace_data">Replace existing data</label>
+                        <div class="form-text">
+                            Check this if you want to replace existing lab slot data. If unchecked and the lab slot already exists, an error will be shown.
+                        </div>
+                    </div>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary me-md-2">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Import</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

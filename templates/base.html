@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Student Register Book{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <h5 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                        <span>Student Register Book</span>
+                    </h5>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
+                                <i class="fas fa-tachometer-alt me-2"></i>
+                                Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'academic_year_index' %}active{% endif %}" href="{{ url_for('academic_year_index') }}">
+                                <i class="fas fa-calendar-alt me-2"></i>
+                                Create/Update DB
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'students_import' %}active{% endif %}" href="{{ url_for('students_import') }}">
+                                <i class="fas fa-file-import me-2"></i>
+                                Import Students
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'teams_index' %}active{% endif %}" href="{{ url_for('teams_index') }}">
+                                <i class="fas fa-users me-2"></i>
+                                Assign Teams
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'attendance_index' %}active{% endif %}" href="{{ url_for('attendance_index') }}">
+                                <i class="fas fa-clipboard-check me-2"></i>
+                                Record Attendance
+                            </a>
+                        </li>
+                        <li class="nav-item" style="margin-left: 1.5rem;">
+                            <a class="nav-link {% if request.endpoint == 'attendance_absences' %}active{% endif %}" href="{{ url_for('attendance_absences') }}">
+                                <i class="fas fa-exclamation-circle me-2"></i>
+                                Show Absences & Replenishments
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'grades_index' %}active{% endif %}" href="{{ url_for('grades_index') }}">
+                                <i class="fas fa-graduation-cap me-2"></i>
+                                Insert Grades
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'students_index' %}active{% endif %}" href="{{ url_for('students_index') }}">
+                                <i class="fas fa-user-edit me-2"></i>
+                                Manage Students
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-primary" href="{{ url_for('init_test_data_route') }}">
+                                <i class="fas fa-database me-2"></i>
+                                Initialize Test Data
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-warning" href="{{ url_for('upgrade_database') }}">
+                                <i class="fas fa-sync me-2"></i>
+                                Upgrade Database
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">{% block header %}Dashboard{% endblock %}</h1>
+                </div>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+                
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 

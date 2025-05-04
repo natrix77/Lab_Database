@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Student Details - {{ student.name }} - Student Register Book{% endblock %}
+
+{% block header %}Student Details: {{ student.name }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Student Information</h5>
+                <div>
+                    <a href="{{ url_for('students_index') }}" class="btn btn-secondary btn-sm me-2">
+                        <i class="fas fa-arrow-left me-1"></i> Back
+                    </a>
+                    <a href="{{ url_for('student_edit', student_id=student.student_id) }}" class="btn btn-primary btn-sm me-2">
+                        <i class="fas fa-edit me-1"></i> Edit
+                    </a>
+                    <a href="{{ url_for('transfer_student', student_id=student.student_id) }}" class="btn btn-info btn-sm me-2">
+                        <i class="fas fa-exchange-alt me-1"></i> Transfer
+                    </a>
+                    <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteStudentModal">
+                        <i class="fas fa-trash me-1"></i> Delete
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-4">Student ID:</dt>
+                            <dd class="col-sm-8">{{ student.student_id }}</dd>
+                            
+                            <dt class="col-sm-4">Name:</dt>
+                            <dd class="col-sm-8">{{ student.name }}</dd>
+                            
+                            <dt class="col-sm-4">Email:</dt>
+                            <dd class="col-sm-8">{{ student.email }}</dd>
+                            
+                            <dt class="col-sm-4">Username:</dt>
+                            <dd class="col-sm-8">{{ student.username }}</dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h6 class="card-title">Quick Stats</h6>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        Enrollments
+                                        <span class="badge bg-primary rounded-pill">{{ enrollments|length }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        Teams
+                                        <span class="badge bg-success rounded-pill">{{ teams|length }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        Attendance Records
+                                        <span class="badge bg-info rounded-pill">{{ attendance|length }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        Grades
+                                        <span class="badge bg-warning rounded-pill">{{ grades|length }}</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Enrollments</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Academic Year</th>
+                                <th>Lab Slot</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for enrollment in enrollments %}
+                            <tr>
+                                <td>{{ enrollment.semester }} {{ enrollment.year }}</td>
+                                <td>{{ enrollment.lab_slot_name }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="2" class="text-center">No enrollments found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Team Assignments</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Academic Year</th>
+                                <th>Lab Slot</th>
+                                <th>Team</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for team in teams %}
+                            <tr>
+                                <td>{{ team.semester }} {{ team.year }}</td>
+                                <td>{{ team.lab_slot_name }}</td>
+                                <td>{{ team.team_number }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center">No team assignments found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Attendance Records</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Academic Year</th>
+                                <th>Exercise</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in attendance %}
+                            <tr>
+                                <td>{{ record.semester }} {{ record.year }}</td>
+                                <td>{{ record.exercise_slot }}</td>
+                                <td>
+                                    {% if record.status == 'Present' %}
+                                    <span class="badge bg-success">{{ record.status }}</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">{{ record.status }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center">No attendance records found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Grades</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Academic Year</th>
+                                <th>Exercise</th>
+                                <th>Grade</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for grade in grades %}
+                            <tr>
+                                <td>{{ grade.semester }} {{ grade.year }}</td>
+                                <td>{{ grade.exercise_slot }}</td>
+                                <td>{{ grade.grade|round(2) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center">No grades found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Final Grades</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Academic Year</th>
+                                <th>Lab Average</th>
+                                <th>June Exam</th>
+                                <th>September Exam</th>
+                                <th>Final Grade</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for grade in final_grades %}
+                            <tr>
+                                <td>{{ grade.semester }} {{ grade.year }}</td>
+                                <td>{{ grade.lab_average|round(2) }}</td>
+                                <td>{{ grade.jun_exam_grade|round(2) }}</td>
+                                <td>{{ grade.sep_exam_grade|round(2) }}</td>
+                                <td>{{ grade.final_grade|round(2) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center">No final grades found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteStudentModal" tabindex="-1" aria-labelledby="deleteStudentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteStudentModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete student <strong>{{ student.name }}</strong>? 
+                This will also delete all related enrollments, team assignments, attendance records, grades, and final grades.
+                This action cannot be undone!
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form action="{{ url_for('student_delete', student_id=student.student_id) }}" method="POST">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

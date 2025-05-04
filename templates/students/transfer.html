@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Transfer Student - {{ student.name }} - Student Register Book{% endblock %}
+
+{% block header %}Transfer Student: {{ student.name }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Student Information</h5>
+                <a href="{{ url_for('student_detail', student_id=student.student_id) }}" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-arrow-left me-1"></i> Back to Student
+                </a>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-2">Student ID:</dt>
+                    <dd class="col-sm-10">{{ student.student_id }}</dd>
+                    
+                    <dt class="col-sm-2">Name:</dt>
+                    <dd class="col-sm-10">{{ student.name }}</dd>
+                    
+                    <dt class="col-sm-2">Email:</dt>
+                    <dd class="col-sm-10">{{ student.email }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Current Enrollments</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Academic Year</th>
+                                <th>Lab Slot</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for enrollment in enrollments %}
+                            <tr>
+                                <td>{{ enrollment.semester }} {{ enrollment.year }}</td>
+                                <td>{{ enrollment.lab_slot_name }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="2" class="text-center">No enrollments found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Transfer to New Lab Slot</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="transferForm">
+                    <div class="mb-3">
+                        <label for="academic_year_id" class="form-label">Academic Year</label>
+                        <select class="form-select" id="academic_year_id" name="academic_year_id" required>
+                            <option value="">Select Academic Year</option>
+                            {% for year in academic_years %}
+                            <option value="{{ year.id }}" {% if year.id == selected_academic_year_id %}selected{% endif %}>
+                                {{ year.semester }} {{ year.year }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="new_lab_slot_id" class="form-label">New Lab Slot</label>
+                        <select class="form-select" id="new_lab_slot_id" name="new_lab_slot_id" required disabled>
+                            <option value="">Select Academic Year First</option>
+                        </select>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Warning:</strong> Transferring a student will also move all their attendance records and grades to the new lab slot.
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary" id="transferButton" disabled>
+                            <i class="fas fa-exchange-alt me-1"></i> Transfer Student
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const academicYearSelect = document.getElementById('academic_year_id');
+    const labSlotSelect = document.getElementById('new_lab_slot_id');
+    const transferButton = document.getElementById('transferButton');
+    
+    // Function to load lab slots based on selected academic year
+    function loadLabSlots() {
+        const academicYearId = academicYearSelect.value;
+        if (!academicYearId) {
+            labSlotSelect.innerHTML = '<option value="">Select Academic Year First</option>';
+            labSlotSelect.disabled = true;
+            transferButton.disabled = true;
+            return;
+        }
+        
+        // Fetch lab slots via API
+        fetch(`/api/lab_slots_for_transfer/?academic_year_id=${academicYearId}&student_id={{ student.student_id }}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                labSlotSelect.innerHTML = '';
+                
+                if (data.error) {
+                    labSlotSelect.innerHTML = `<option value="">${data.error}</option>`;
+                    labSlotSelect.disabled = true;
+                    transferButton.disabled = true;
+                    return;
+                }
+                
+                if (data.lab_slots.length === 0) {
+                    labSlotSelect.innerHTML = '<option value="">No other lab slots available for transfer</option>';
+                    labSlotSelect.disabled = true;
+                    transferButton.disabled = true;
+                    return;
+                }
+                
+                labSlotSelect.innerHTML = '<option value="">Select New Lab Slot</option>';
+                data.lab_slots.forEach(slot => {
+                    const option = document.createElement('option');
+                    option.value = slot.id;
+                    option.textContent = slot.name;
+                    labSlotSelect.appendChild(option);
+                });
+                
+                labSlotSelect.disabled = false;
+                transferButton.disabled = true;
+            })
+            .catch(error => {
+                console.error('Error fetching lab slots:', error);
+                labSlotSelect.innerHTML = '<option value="">Error loading lab slots</option>';
+                labSlotSelect.disabled = true;
+                transferButton.disabled = true;
+            });
+    }
+    
+    // Load lab slots when academic year changes
+    academicYearSelect.addEventListener('change', loadLabSlots);
+    
+    // Enable/disable transfer button based on lab slot selection
+    labSlotSelect.addEventListener('change', function() {
+        transferButton.disabled = !labSlotSelect.value;
+    });
+    
+    // Load lab slots on page load if academic year is selected
+    if (academicYearSelect.value) {
+        loadLabSlots();
+    }
+});
+</script>
+{% endblock %} 
