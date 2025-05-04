@@ -51,6 +51,29 @@ Your GitHub Pages site will be available at: https://YOUR_USERNAME.github.io/Lab
    pip install -r requirements-web.txt
    ```
 
+## Online Deployment
+
+The application can be deployed to various cloud platforms to make it accessible online to users.
+
+### Deploying to Heroku
+
+We provide a script to easily deploy the application to Heroku:
+
+1. Make sure you have the [Heroku CLI](https://devcenter.heroku.com/articles/heroku-cli) installed
+2. Run the deployment script:
+   ```
+   deploy_heroku.bat
+   ```
+3. Follow the prompts to complete the deployment
+
+For detailed instructions, see the [DEPLOYMENT.md](DEPLOYMENT.md) file.
+
+### Deploying to Other Platforms
+
+We also provide guides for deploying to:
+- [Railway](DEPLOYMENT.md#deploying-to-railway)
+- [PythonAnywhere](DEPLOYMENT.md#deploying-to-pythonanywhere)
+
 ## Running the Application
 
 1. Activate the virtual environment (if not already activated)
