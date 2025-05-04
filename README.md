@@ -17,7 +17,25 @@ A web application for managing lab students, teams, attendance, and grades.
 - Calculate final grades
 - Export data to Excel
 
-## Installation
+## GitHub Pages
+
+The project includes a GitHub Pages site that displays information about the application and provides installation instructions.
+
+To view the GitHub Pages site, visit: https://natrix77.github.io/Lab_Database/
+
+### Setting up GitHub Pages
+
+If you've forked this repository and want to set up your own GitHub Pages site:
+
+1. Go to your repository settings
+2. Navigate to the "Pages" section
+3. Under "Source", select "Deploy from a branch"
+4. Under "Branch", select "main" and "/docs" folder
+5. Click "Save"
+
+Your GitHub Pages site will be available at: https://YOUR_USERNAME.github.io/Lab_Database/
+
+## Local Development
 
 1. Make sure you have Python 3.8+ installed
 2. Clone this repository
