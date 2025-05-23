@@ -1,0 +1,15 @@
+[build]
+  command = "pip install -r requirements-netlify.txt && mkdir -p ./dist && cp -r ./static ./dist/ && cp -r ./templates ./dist/"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[dev]
+  framework = "#custom"
+  command = "python simple_app_serverless.py"
+  port = 5050
+  targetPort = 5050
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/app"
+  status = 200 
