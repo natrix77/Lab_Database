@@ -10,7 +10,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # Initialize Flask app
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-secret-key')
-app.config['DATABASE'] = os.environ.get('DATABASE_PATH', 'student_register.db')
+
+# Database path with fallback and debug info
+DB_PATH = os.environ.get('DATABASE_PATH', 'student_register.db')
+print(f"Using database path: {DB_PATH}")
+app.config['DATABASE'] = DB_PATH
 
 # Default admin credentials
 DEFAULT_USERNAME = 'admin'
@@ -30,8 +34,24 @@ def login_required(f):
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
-        db = g._database = sqlite3.connect(app.config['DATABASE'])
-        db.row_factory = sqlite3.Row
+        try:
+            # Ensure directory exists
+            db_dir = os.path.dirname(app.config['DATABASE'])
+            if db_dir and not os.path.exists(db_dir):
+                os.makedirs(db_dir, exist_ok=True)
+                print(f"Created database directory: {db_dir}")
+                
+            db = g._database = sqlite3.connect(app.config['DATABASE'])
+            db.row_factory = sqlite3.Row
+            print(f"Successfully connected to database: {app.config['DATABASE']}")
+        except Exception as e:
+            print(f"Database connection error: {e}")
+            # Fallback to in-memory database in case of issues
+            print("Falling back to in-memory database")
+            db = g._database = sqlite3.connect(':memory:')
+            db.row_factory = sqlite3.Row
+            # Initialize in-memory DB
+            init_users_table(db)
     return db
 
 def query_db(query, args=(), one=False):
@@ -52,9 +72,15 @@ def close_connection(exception):
         db.close()
 
 # Initialize the users table
-def init_users_table():
+def init_users_table(conn=None):
     try:
-        db = sqlite3.connect(app.config['DATABASE'])
+        if conn is None:
+            db_path = app.config['DATABASE']
+            print(f"Initializing users table in {db_path}")
+            db = sqlite3.connect(db_path)
+        else:
+            db = conn
+            
         cursor = db.cursor()
         
         # Check if the Users table exists
@@ -80,8 +106,9 @@ def init_users_table():
             )
             print("Users table created with default admin user")
         
-        db.commit()
-        db.close()
+        if conn is None:
+            db.commit()
+            db.close()
     except Exception as e:
         print(f"Error initializing users table: {e}")
 
@@ -93,8 +120,8 @@ def login():
         password = request.form.get('password')
         
         try:
-            conn = sqlite3.connect(app.config['DATABASE'])
-            conn.row_factory = sqlite3.Row
+            # Use get_db() to ensure consistency and fallback capability
+            conn = get_db()
             cursor = conn.cursor()
             
             cursor.execute('SELECT * FROM users WHERE username = ?', [username])
@@ -107,15 +134,13 @@ def login():
                 
                 next_page = request.args.get('next')
                 flash('Login successful', 'success')
-                conn.close()
                 return redirect(next_page or url_for('dashboard'))
             else:
                 flash('Invalid username or password', 'danger')
-            
-            conn.close()
         except Exception as e:
-            flash(f'Login error: {str(e)}', 'danger')
-            print(f"Login error: {e}")
+            error_msg = f'Login error: {str(e)}'
+            flash(error_msg, 'danger')
+            print(error_msg)
     
     return render_template('login.html')
 
@@ -141,7 +166,59 @@ def dashboard():
 # Health check API
 @app.route('/api/health')
 def health_check():
-    return jsonify({'status': 'ok', 'version': '1.0.0'})
+    # Report database status in health check
+    db_status = 'ok'
+    db_error = None
+    try:
+        # Test database connection
+        query_db('SELECT 1', one=True)
+    except Exception as e:
+        db_status = 'error'
+        db_error = str(e)
+    
+    return jsonify({
+        'status': 'ok', 
+        'version': '1.0.0',
+        'database': {
+            'status': db_status,
+            'path': app.config['DATABASE'],
+            'error': db_error
+        }
+    })
+
+# Debug route to check database access
+@app.route('/debug/database')
+def debug_database():
+    # Only allow in development
+    if not app.debug and not os.environ.get('RENDER_DEBUG', '0') == '1':
+        return "Debug endpoints disabled in production", 403
+    
+    info = {
+        'database_path': app.config['DATABASE'],
+        'path_exists': os.path.exists(app.config['DATABASE']),
+        'directory': os.path.dirname(app.config['DATABASE']),
+        'directory_exists': os.path.exists(os.path.dirname(app.config['DATABASE']) or '.'),
+        'environment': dict(os.environ),
+        'current_directory': os.getcwd(),
+        'directory_contents': []
+    }
+    
+    # List directory contents
+    try:
+        dir_to_check = os.path.dirname(app.config['DATABASE']) or '.'
+        if os.path.exists(dir_to_check):
+            info['directory_contents'] = os.listdir(dir_to_check)
+    except Exception as e:
+        info['directory_error'] = str(e)
+    
+    # Check database connection
+    try:
+        query_db('SELECT 1', one=True)
+        info['connection_test'] = 'success'
+    except Exception as e:
+        info['connection_test'] = f'error: {str(e)}'
+    
+    return jsonify(info)
 
 # Initialize database when the app is loaded
 with app.app_context():

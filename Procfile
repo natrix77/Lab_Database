@@ -1,1 +1,1 @@
-web: gunicorn simple_app_lite:app 
+web: python setup.py && gunicorn --log-level debug simple_app_lite:app 

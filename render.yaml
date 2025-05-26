@@ -3,7 +3,7 @@ services:
     name: lab-database
     env: python
     buildCommand: pip install -r requirements-lite.txt
-    startCommand: python setup.py && gunicorn simple_app_lite:app
+    startCommand: python setup.py && gunicorn --log-level debug simple_app_lite:app
     plan: free
     envVars:
       - key: SECRET_KEY
@@ -12,10 +12,17 @@ services:
         value: 3.8.12
       - key: DATABASE_PATH
         value: /data/student_register.db
+      - key: RENDER_DEBUG
+        value: 1
+      - key: FLASK_DEBUG
+        value: 1
+      - key: PYTHONUNBUFFERED
+        value: 1
     disk:
       name: data
       mountPath: /data
       sizeGB: 1
+    healthCheckPath: /api/health
 
 databases:
   - name: student-register-db
