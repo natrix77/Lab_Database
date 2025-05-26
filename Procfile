@@ -1,1 +1,1 @@
-web: gunicorn simple_app_serverless:app 
+web: gunicorn simple_app_lite:app 

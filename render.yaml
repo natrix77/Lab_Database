@@ -2,8 +2,8 @@ services:
   - type: web
     name: lab-database
     env: python
-    buildCommand: pip install -r requirements-netlify.txt
-    startCommand: gunicorn simple_app_serverless:app
+    buildCommand: pip install -r requirements-lite.txt
+    startCommand: gunicorn simple_app_lite:app
     plan: free
     envVars:
       - key: SECRET_KEY

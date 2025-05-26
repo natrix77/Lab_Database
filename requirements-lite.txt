@@ -1,11 +1,7 @@
 Flask==2.0.3
 Werkzeug==2.0.3
-numpy==1.24.3
-pandas==1.5.3
-openpyxl==3.0.10
 python-dateutil==2.8.2
 sqlalchemy==1.4.46
-serverless-wsgi==3.0.1
 flask-session==0.4.0
 flask-cors==3.0.10
 gunicorn==20.1.0 
