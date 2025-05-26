@@ -11,17 +11,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-secret-key')
 
-# For Render.com: use in-memory database by default to avoid file system issues
-DEFAULT_DB = ":memory:"
-DB_PATH = os.environ.get('DATABASE_PATH', DEFAULT_DB)
-
-# If on Render, prefer in-memory for reliability
-if os.environ.get('RENDER'):
-    print("Running on Render.com - using in-memory database for reliability")
-    DB_PATH = DEFAULT_DB
-
-print(f"Database path: {DB_PATH}")
-app.config['DATABASE'] = DB_PATH
+# FORCE in-memory database regardless of environment settings
+# This is a hard override to fix deployment issues
+print("NOTICE: Forcing in-memory database usage for reliability")
+app.config['DATABASE'] = ":memory:"
 
 # Default admin credentials
 DEFAULT_USERNAME = 'admin'
@@ -42,26 +35,18 @@ def get_db():
     db = getattr(g, '_database', None)
     if db is None:
         try:
-            # For in-memory database, we need to initialize tables every time
-            is_memory_db = app.config['DATABASE'] == ":memory:"
-            
-            db = g._database = sqlite3.connect(app.config['DATABASE'])
+            # Always connect to in-memory database
+            db = g._database = sqlite3.connect(":memory:")
             db.row_factory = sqlite3.Row
             
-            if is_memory_db:
-                # Always initialize for in-memory DB
-                init_tables(db)
-                print("Using in-memory database with initialized tables")
+            # Always initialize tables for in-memory DB
+            init_tables(db)
+            print("Connected to in-memory database with initialized tables")
             
             return db
         except Exception as e:
             print(f"Database connection error: {e}")
-            # Fall back to in-memory database if file connection fails
-            print("Falling back to in-memory database")
-            db = g._database = sqlite3.connect(':memory:')
-            db.row_factory = sqlite3.Row
-            init_tables(db)
-            return db
+            raise
     return db
 
 def query_db(query, args=(), one=False):
@@ -395,20 +380,16 @@ def add_test_user():
     except Exception as e:
         return f"Error: {str(e)}"
 
-# Initialize app when loaded
+# Initialize app when loaded - IMPORTANT: This is where things were failing
 with app.app_context():
-    # Initialize in-memory database if used
-    if app.config['DATABASE'] == ':memory:':
+    print("Initializing application database...")
+    # Always use in-memory database
+    try:
+        # Initialize in-memory database
         init_tables()
-    else:
-        try:
-            # Try to initialize file database
-            init_tables()
-        except Exception as e:
-            print(f"Error initializing file database: {e}")
-            # Switch to in-memory database
-            app.config['DATABASE'] = ':memory:'
-            init_tables()
+        print("Successfully initialized in-memory database")
+    except Exception as e:
+        print(f"ERROR during app initialization: {e}")
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5050) 
