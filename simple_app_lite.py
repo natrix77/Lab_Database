@@ -146,10 +146,21 @@ def health_check():
 # Initialize database when the app is loaded
 with app.app_context():
     try:
+        # Ensure database directory exists
+        db_path = app.config['DATABASE']
+        db_dir = os.path.dirname(db_path)
+        
+        if db_dir and not os.path.exists(db_dir):
+            try:
+                os.makedirs(db_dir, exist_ok=True)
+                print(f"Created database directory: {db_dir}")
+            except Exception as e:
+                print(f"Error creating database directory: {e}")
+        
         # Ensure database file exists
-        if not os.path.exists(app.config['DATABASE']):
-            open(app.config['DATABASE'], 'a').close()
-            print(f"Created empty database file: {app.config['DATABASE']}")
+        if not os.path.exists(db_path):
+            open(db_path, 'a').close()
+            print(f"Created empty database file: {db_path}")
         
         # Initialize tables
         init_users_table()

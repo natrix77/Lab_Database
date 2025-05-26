@@ -3,7 +3,7 @@ services:
     name: lab-database
     env: python
     buildCommand: pip install -r requirements-lite.txt
-    startCommand: gunicorn simple_app_lite:app
+    startCommand: python setup.py && gunicorn simple_app_lite:app
     plan: free
     envVars:
       - key: SECRET_KEY
