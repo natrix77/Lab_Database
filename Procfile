@@ -1,1 +1,2 @@
-web: DATABASE_PATH=":memory:" python setup.py && gunicorn --log-level debug simple_app_lite:app 
+web: bash start.sh
+alt: gunicorn --log-level debug wsgi:application 
