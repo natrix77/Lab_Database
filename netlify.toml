@@ -1,10 +1,11 @@
 [build]
-  command = "python -m pip install --upgrade pip && pip install -r requirements-netlify.txt && mkdir -p ./dist && cp -r ./static ./dist/ && cp -r ./templates ./dist/ && cp _redirects ./dist/"
+  command = "bash netlify.sh"
   publish = "dist"
   functions = "netlify/functions"
 
 [build.environment]
-  PYTHON_VERSION = "3.9"
+  PYTHON_VERSION = "3.8"
+  NODE_VERSION = "16"
 
 [dev]
   framework = "#custom"

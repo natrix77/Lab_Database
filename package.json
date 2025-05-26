@@ -4,7 +4,7 @@
   "description": "Lab Database application",
   "engines": {
     "node": ">=16.0.0",
-    "python": "3.9"
+    "python": "3.8"
   },
   "scripts": {
     "build": "python -m pip install --upgrade pip && pip install -r requirements-netlify.txt"
