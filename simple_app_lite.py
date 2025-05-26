@@ -11,46 +11,16 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-secret-key')
 
-# Try multiple database locations
+# For Render.com: use in-memory database by default to avoid file system issues
+DEFAULT_DB = ":memory:"
+DB_PATH = os.environ.get('DATABASE_PATH', DEFAULT_DB)
+
+# If on Render, prefer in-memory for reliability
 if os.environ.get('RENDER'):
-    # For Render.com deployment
-    DB_LOCATIONS = [
-        os.environ.get('DATABASE_PATH', '/data/student_register.db'),  # Disk mount location
-        '/tmp/student_register.db',  # Temp directory (always writable)
-        'student_register.db'  # Local to app directory
-    ]
-else:
-    # For local development
-    DB_LOCATIONS = [
-        os.environ.get('DATABASE_PATH', 'student_register.db')
-    ]
+    print("Running on Render.com - using in-memory database for reliability")
+    DB_PATH = DEFAULT_DB
 
-# Try each location until one works
-DB_PATH = None
-for location in DB_LOCATIONS:
-    try:
-        print(f"Trying database location: {location}")
-        db_dir = os.path.dirname(location)
-        if db_dir and not os.path.exists(db_dir):
-            os.makedirs(db_dir, exist_ok=True)
-            print(f"Created directory: {db_dir}")
-        
-        # Test if we can write to this location
-        with open(location, 'a') as f:
-            pass
-        
-        # Location works, use it
-        DB_PATH = location
-        print(f"Using database path: {DB_PATH}")
-        break
-    except Exception as e:
-        print(f"Location {location} not usable: {e}")
-
-# If no location works, fall back to in-memory
-if not DB_PATH:
-    print("WARNING: No writable database location found, using in-memory database")
-    DB_PATH = ":memory:"
-
+print(f"Database path: {DB_PATH}")
 app.config['DATABASE'] = DB_PATH
 
 # Default admin credentials
@@ -72,17 +42,26 @@ def get_db():
     db = getattr(g, '_database', None)
     if db is None:
         try:
+            # For in-memory database, we need to initialize tables every time
+            is_memory_db = app.config['DATABASE'] == ":memory:"
+            
             db = g._database = sqlite3.connect(app.config['DATABASE'])
             db.row_factory = sqlite3.Row
-            print(f"Successfully connected to database: {app.config['DATABASE']}")
+            
+            if is_memory_db:
+                # Always initialize for in-memory DB
+                init_tables(db)
+                print("Using in-memory database with initialized tables")
+            
+            return db
         except Exception as e:
             print(f"Database connection error: {e}")
-            # Fallback to in-memory database in case of issues
+            # Fall back to in-memory database if file connection fails
             print("Falling back to in-memory database")
             db = g._database = sqlite3.connect(':memory:')
             db.row_factory = sqlite3.Row
-            # Initialize in-memory DB
-            init_users_table(db)
+            init_tables(db)
+            return db
     return db
 
 def query_db(query, args=(), one=False):
@@ -111,57 +90,59 @@ def close_connection(exception):
     if db is not None:
         db.close()
 
-# Initialize the users table
-def init_users_table(conn=None):
+# Initialize all database tables
+def init_tables(conn=None):
     try:
         if conn is None:
-            db_path = app.config['DATABASE']
-            print(f"Initializing users table in {db_path}")
-            db = sqlite3.connect(db_path)
+            db = get_db()
         else:
             db = conn
             
         cursor = db.cursor()
         
-        # Check if the Users table exists
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
-        result = cursor.fetchone()
+        # Create users table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                is_admin INTEGER DEFAULT 0
+            )
+        ''')
         
-        if not result:
-            # Create the Users table
-            cursor.execute('''
-                CREATE TABLE users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT UNIQUE NOT NULL,
-                    password_hash TEXT NOT NULL,
-                    is_admin INTEGER DEFAULT 0
-                )
-            ''')
-            
+        # Check if default admin exists
+        cursor.execute('SELECT * FROM users WHERE username = ?', [DEFAULT_USERNAME])
+        admin = cursor.fetchone()
+        
+        if not admin:
             # Add default admin user
             hashed_password = generate_password_hash(DEFAULT_PASSWORD)
             cursor.execute(
                 'INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 1)',
                 [DEFAULT_USERNAME, hashed_password]
             )
-            print("Users table created with default admin user")
+            print("Added default admin user")
         
+        # Commit changes
         if conn is None:
             db.commit()
-            db.close()
+            
+        print("Database tables initialized")
+        return True
     except Exception as e:
-        print(f"Error initializing users table: {e}")
+        print(f"Error initializing tables: {e}")
+        return False
 
 # Login routes
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
+    
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
         
         try:
-            # Use get_db() to ensure consistency and fallback capability
             conn = get_db()
             cursor = conn.cursor()
             
@@ -184,22 +165,50 @@ def login():
             flash(error, 'danger')
             print(error)
     
-    # Simplified login page if there's an error
-    if error and "unable to open database" in error.lower():
+    # If there's a database error, provide simplified login page
+    if error and "database" in error.lower():
         return f"""
         <html>
+        <head>
+            <title>Lab Database - Login</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; }}
+                .container {{ max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }}
+                h1 {{ color: #2c3e50; }}
+                .error {{ background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 10px; border-radius: 5px; margin-bottom: 20px; }}
+                .form-group {{ margin-bottom: 15px; }}
+                label {{ display: block; margin-bottom: 5px; }}
+                input[type="text"], input[type="password"] {{ width: 100%; padding: 8px; box-sizing: border-box; }}
+                button {{ background-color: #007bff; color: white; border: none; padding: 10px 15px; cursor: pointer; }}
+                .debug {{ margin-top: 20px; font-size: 12px; }}
+            </style>
+        </head>
         <body>
-            <h1>Database Access Error</h1>
-            <p>{error}</p>
-            <p>Current database path: {app.config['DATABASE']}</p>
-            <p>This is likely a temporary issue with the database storage.</p>
-            <p><a href="/debug/database">View Database Debug Info</a></p>
-            <form method="post">
-                <h2>Login</h2>
-                <p>Username: <input type="text" name="username" value="admin"></p>
-                <p>Password: <input type="password" name="password" value="admin123"></p>
-                <p><input type="submit" value="Login"></p>
-            </form>
+            <div class="container">
+                <h1>Student Register Book</h1>
+                
+                <div class="error">
+                    <p><strong>Database Error:</strong> {error}</p>
+                    <p>Using in-memory database mode. Any changes will be lost when the application restarts.</p>
+                </div>
+                
+                <form method="post">
+                    <div class="form-group">
+                        <label>Username:</label>
+                        <input type="text" name="username" value="admin">
+                    </div>
+                    <div class="form-group">
+                        <label>Password:</label>
+                        <input type="password" name="password" value="admin123">
+                    </div>
+                    <button type="submit">Login</button>
+                </form>
+                
+                <div class="debug">
+                    <p>Current database: {app.config['DATABASE']}</p>
+                    <p><a href="/debug/database">View Database Debug Info</a></p>
+                </div>
+            </div>
         </body>
         </html>
         """
@@ -244,6 +253,7 @@ def health_check():
         'database': {
             'status': db_status,
             'path': app.config['DATABASE'],
+            'in_memory': app.config['DATABASE'] == ':memory:',
             'error': db_error
         },
         'environment': {
@@ -257,30 +267,32 @@ def health_check():
 # Debug route to check database access
 @app.route('/debug/database')
 def debug_database():
-    # Debug endpoints available in all environments now
     info = {
         'database_path': app.config['DATABASE'],
-        'path_exists': os.path.exists(app.config['DATABASE']),
-        'directory': os.path.dirname(app.config['DATABASE']),
-        'directory_exists': os.path.exists(os.path.dirname(app.config['DATABASE']) or '.'),
+        'in_memory': app.config['DATABASE'] == ':memory:',
         'environment': dict([(k,v) for k,v in os.environ.items() if 'PATH' in k or 'DATABASE' in k or 'RENDER' in k or 'PYTHON' in k]),
         'current_directory': os.getcwd(),
-        'directory_contents': [],
-        'tried_paths': DB_LOCATIONS
     }
     
-    # List directory contents
-    try:
-        dir_to_check = os.path.dirname(app.config['DATABASE']) or '.'
-        if os.path.exists(dir_to_check):
-            info['directory_contents'] = os.listdir(dir_to_check)
-    except Exception as e:
-        info['directory_error'] = str(e)
+    # If not in-memory, check file access
+    if app.config['DATABASE'] != ':memory:':
+        info['path_exists'] = os.path.exists(app.config['DATABASE'])
+        info['directory'] = os.path.dirname(app.config['DATABASE'])
+        info['directory_exists'] = os.path.exists(os.path.dirname(app.config['DATABASE']) or '.')
+        
+        # List directory contents
+        try:
+            dir_to_check = os.path.dirname(app.config['DATABASE']) or '.'
+            if os.path.exists(dir_to_check):
+                info['directory_contents'] = os.listdir(dir_to_check)
+        except Exception as e:
+            info['directory_error'] = str(e)
     
     # Check database connection
     try:
-        query_db('SELECT 1', one=True)
+        user_count = query_db('SELECT COUNT(*) as count FROM users', one=True)
         info['connection_test'] = 'success'
+        info['user_count'] = user_count['count'] if user_count else 0
     except Exception as e:
         info['connection_test'] = f'error: {str(e)}'
     
@@ -297,19 +309,42 @@ def debug_database():
             info[f'{test_dir}_error'] = str(e)
     
     # Return HTML for easier viewing
-    html = "<html><body><h1>Database Debug Info</h1><pre>"
-    html += json.dumps(info, indent=2)
-    html += "</pre>"
-    
-    # Add test create button
-    html += """
-    <h2>Actions</h2>
-    <form action="/debug/create_test_table" method="post">
-        <button type="submit">Create Test Table</button>
-    </form>
+    html = f"""
+    <html>
+    <head>
+        <title>Database Debug Info</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; }}
+            h1, h2 {{ color: #2c3e50; }}
+            pre {{ background-color: #f5f5f5; padding: 15px; border-radius: 5px; overflow: auto; }}
+            .actions {{ margin: 20px 0; }}
+            button {{ background-color: #007bff; color: white; border: none; padding: 10px 15px; cursor: pointer; margin-right: 10px; }}
+            .memory-notice {{ background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 10px; border-radius: 5px; margin-bottom: 20px; }}
+        </style>
+    </head>
+    <body>
+        <h1>Database Debug Info</h1>
+        
+        {'''<div class="memory-notice">
+            <strong>Notice:</strong> Using in-memory database. All data will be lost when the application restarts.
+        </div>''' if app.config['DATABASE'] == ':memory:' else ''}
+        
+        <pre>{json.dumps(info, indent=2)}</pre>
+        
+        <div class="actions">
+            <form action="/debug/create_test_table" method="post" style="display: inline;">
+                <button type="submit">Create Test Table</button>
+            </form>
+            
+            <form action="/debug/add_test_user" method="post" style="display: inline;">
+                <button type="submit">Add Test User</button>
+            </form>
+            
+            <a href="/"><button type="button">Go to App</button></a>
+        </div>
+    </body>
+    </html>
     """
-    
-    html += "</body></html>"
     return html
 
 @app.route('/debug/create_test_table', methods=['POST'])
@@ -334,17 +369,46 @@ def create_test_table():
         )
         
         conn.commit()
+        flash("Test table created successfully", "success")
         return redirect('/debug/database')
     except Exception as e:
         return f"Error: {str(e)}"
 
-# Initialize database when the app is loaded
-with app.app_context():
+@app.route('/debug/add_test_user', methods=['POST'])
+def add_test_user():
     try:
-        # Initialize tables
-        init_users_table()
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Create a test user
+        test_username = f"test_user_{datetime.now().strftime('%H%M%S')}"
+        hashed_password = generate_password_hash("password123")
+        
+        cursor.execute(
+            'INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 0)',
+            [test_username, hashed_password]
+        )
+        
+        conn.commit()
+        flash(f"Test user '{test_username}' created with password 'password123'", "success")
+        return redirect('/debug/database')
     except Exception as e:
-        print(f"Error during app initialization: {e}")
+        return f"Error: {str(e)}"
+
+# Initialize app when loaded
+with app.app_context():
+    # Initialize in-memory database if used
+    if app.config['DATABASE'] == ':memory:':
+        init_tables()
+    else:
+        try:
+            # Try to initialize file database
+            init_tables()
+        except Exception as e:
+            print(f"Error initializing file database: {e}")
+            # Switch to in-memory database
+            app.config['DATABASE'] = ':memory:'
+            init_tables()
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5050) 
