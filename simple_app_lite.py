@@ -11,9 +11,46 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-secret-key')
 
-# Database path with fallback and debug info
-DB_PATH = os.environ.get('DATABASE_PATH', 'student_register.db')
-print(f"Using database path: {DB_PATH}")
+# Try multiple database locations
+if os.environ.get('RENDER'):
+    # For Render.com deployment
+    DB_LOCATIONS = [
+        os.environ.get('DATABASE_PATH', '/data/student_register.db'),  # Disk mount location
+        '/tmp/student_register.db',  # Temp directory (always writable)
+        'student_register.db'  # Local to app directory
+    ]
+else:
+    # For local development
+    DB_LOCATIONS = [
+        os.environ.get('DATABASE_PATH', 'student_register.db')
+    ]
+
+# Try each location until one works
+DB_PATH = None
+for location in DB_LOCATIONS:
+    try:
+        print(f"Trying database location: {location}")
+        db_dir = os.path.dirname(location)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+            print(f"Created directory: {db_dir}")
+        
+        # Test if we can write to this location
+        with open(location, 'a') as f:
+            pass
+        
+        # Location works, use it
+        DB_PATH = location
+        print(f"Using database path: {DB_PATH}")
+        break
+    except Exception as e:
+        print(f"Location {location} not usable: {e}")
+
+# If no location works, fall back to in-memory
+if not DB_PATH:
+    print("WARNING: No writable database location found, using in-memory database")
+    DB_PATH = ":memory:"
+
 app.config['DATABASE'] = DB_PATH
 
 # Default admin credentials
@@ -35,12 +72,6 @@ def get_db():
     db = getattr(g, '_database', None)
     if db is None:
         try:
-            # Ensure directory exists
-            db_dir = os.path.dirname(app.config['DATABASE'])
-            if db_dir and not os.path.exists(db_dir):
-                os.makedirs(db_dir, exist_ok=True)
-                print(f"Created database directory: {db_dir}")
-                
             db = g._database = sqlite3.connect(app.config['DATABASE'])
             db.row_factory = sqlite3.Row
             print(f"Successfully connected to database: {app.config['DATABASE']}")
@@ -55,15 +86,24 @@ def get_db():
     return db
 
 def query_db(query, args=(), one=False):
-    cur = get_db().execute(query, args)
-    rv = cur.fetchall()
-    cur.close()
-    return (rv[0] if rv else None) if one else rv
+    try:
+        cur = get_db().execute(query, args)
+        rv = cur.fetchall()
+        cur.close()
+        return (rv[0] if rv else None) if one else rv
+    except Exception as e:
+        print(f"Query error: {e}")
+        return None if one else []
 
 def modify_db(query, args=()):
-    db = get_db()
-    db.execute(query, args)
-    db.commit()
+    try:
+        db = get_db()
+        db.execute(query, args)
+        db.commit()
+        return True
+    except Exception as e:
+        print(f"Modify error: {e}")
+        return False
 
 @app.teardown_appcontext
 def close_connection(exception):
@@ -115,6 +155,7 @@ def init_users_table(conn=None):
 # Login routes
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    error = None
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -136,11 +177,32 @@ def login():
                 flash('Login successful', 'success')
                 return redirect(next_page or url_for('dashboard'))
             else:
-                flash('Invalid username or password', 'danger')
+                error = 'Invalid username or password'
+                flash(error, 'danger')
         except Exception as e:
-            error_msg = f'Login error: {str(e)}'
-            flash(error_msg, 'danger')
-            print(error_msg)
+            error = f'Login error: {str(e)}'
+            flash(error, 'danger')
+            print(error)
+    
+    # Simplified login page if there's an error
+    if error and "unable to open database" in error.lower():
+        return f"""
+        <html>
+        <body>
+            <h1>Database Access Error</h1>
+            <p>{error}</p>
+            <p>Current database path: {app.config['DATABASE']}</p>
+            <p>This is likely a temporary issue with the database storage.</p>
+            <p><a href="/debug/database">View Database Debug Info</a></p>
+            <form method="post">
+                <h2>Login</h2>
+                <p>Username: <input type="text" name="username" value="admin"></p>
+                <p>Password: <input type="password" name="password" value="admin123"></p>
+                <p><input type="submit" value="Login"></p>
+            </form>
+        </body>
+        </html>
+        """
     
     return render_template('login.html')
 
@@ -183,24 +245,28 @@ def health_check():
             'status': db_status,
             'path': app.config['DATABASE'],
             'error': db_error
+        },
+        'environment': {
+            'render': os.environ.get('RENDER', 'Not set'),
+            'tmp_dir_exists': os.path.exists('/tmp'),
+            'data_dir_exists': os.path.exists('/data'),
+            'current_dir': os.getcwd()
         }
     })
 
 # Debug route to check database access
 @app.route('/debug/database')
 def debug_database():
-    # Only allow in development
-    if not app.debug and not os.environ.get('RENDER_DEBUG', '0') == '1':
-        return "Debug endpoints disabled in production", 403
-    
+    # Debug endpoints available in all environments now
     info = {
         'database_path': app.config['DATABASE'],
         'path_exists': os.path.exists(app.config['DATABASE']),
         'directory': os.path.dirname(app.config['DATABASE']),
         'directory_exists': os.path.exists(os.path.dirname(app.config['DATABASE']) or '.'),
-        'environment': dict(os.environ),
+        'environment': dict([(k,v) for k,v in os.environ.items() if 'PATH' in k or 'DATABASE' in k or 'RENDER' in k or 'PYTHON' in k]),
         'current_directory': os.getcwd(),
-        'directory_contents': []
+        'directory_contents': [],
+        'tried_paths': DB_LOCATIONS
     }
     
     # List directory contents
@@ -218,27 +284,63 @@ def debug_database():
     except Exception as e:
         info['connection_test'] = f'error: {str(e)}'
     
-    return jsonify(info)
+    # Check common directories
+    for test_dir in ['/tmp', '/data', '/app']:
+        try:
+            if os.path.exists(test_dir):
+                info[f'{test_dir}_exists'] = True
+                info[f'{test_dir}_writable'] = os.access(test_dir, os.W_OK)
+                info[f'{test_dir}_contents'] = os.listdir(test_dir)
+            else:
+                info[f'{test_dir}_exists'] = False
+        except Exception as e:
+            info[f'{test_dir}_error'] = str(e)
+    
+    # Return HTML for easier viewing
+    html = "<html><body><h1>Database Debug Info</h1><pre>"
+    html += json.dumps(info, indent=2)
+    html += "</pre>"
+    
+    # Add test create button
+    html += """
+    <h2>Actions</h2>
+    <form action="/debug/create_test_table" method="post">
+        <button type="submit">Create Test Table</button>
+    </form>
+    """
+    
+    html += "</body></html>"
+    return html
+
+@app.route('/debug/create_test_table', methods=['POST'])
+def create_test_table():
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Create a test table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS test_table (
+                id INTEGER PRIMARY KEY,
+                timestamp TEXT,
+                message TEXT
+            )
+        ''')
+        
+        # Add a test row
+        cursor.execute(
+            'INSERT INTO test_table (timestamp, message) VALUES (?, ?)',
+            [datetime.now().isoformat(), f"Test entry from {os.environ.get('RENDER', 'local')}"]
+        )
+        
+        conn.commit()
+        return redirect('/debug/database')
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 # Initialize database when the app is loaded
 with app.app_context():
     try:
-        # Ensure database directory exists
-        db_path = app.config['DATABASE']
-        db_dir = os.path.dirname(db_path)
-        
-        if db_dir and not os.path.exists(db_dir):
-            try:
-                os.makedirs(db_dir, exist_ok=True)
-                print(f"Created database directory: {db_dir}")
-            except Exception as e:
-                print(f"Error creating database directory: {e}")
-        
-        # Ensure database file exists
-        if not os.path.exists(db_path):
-            open(db_path, 'a').close()
-            print(f"Created empty database file: {db_path}")
-        
         # Initialize tables
         init_users_table()
     except Exception as e:

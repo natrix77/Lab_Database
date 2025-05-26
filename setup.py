@@ -5,71 +5,63 @@ import stat
 import time
 
 def setup_database():
-    # Get database path from environment or use default
-    db_path = os.environ.get('DATABASE_PATH', 'student_register.db')
-    print(f"Setting up database at: {db_path}")
+    # Try multiple database locations
+    if os.environ.get('RENDER'):
+        # For Render.com deployment
+        DB_LOCATIONS = [
+            os.environ.get('DATABASE_PATH', '/data/student_register.db'),  # Disk mount location
+            '/tmp/student_register.db',  # Temp directory (always writable)
+            'student_register.db'  # Local to app directory
+        ]
+    else:
+        # For local development
+        DB_LOCATIONS = [
+            os.environ.get('DATABASE_PATH', 'student_register.db')
+        ]
     
-    # Create directory if it doesn't exist
-    db_dir = os.path.dirname(db_path)
-    if db_dir:
+    # Try each location until one works
+    db_path = None
+    for location in DB_LOCATIONS:
         try:
-            print(f"Checking if directory exists: {db_dir}")
-            if not os.path.exists(db_dir):
-                print(f"Creating directory: {db_dir}")
-                os.makedirs(db_dir, exist_ok=True)
-                # Wait a moment to ensure the directory creation is complete
-                time.sleep(1)
-                print(f"Created database directory: {db_dir}")
-                
-            # Check if directory is writable
-            if os.access(db_dir, os.W_OK):
-                print(f"Directory {db_dir} is writable")
-            else:
-                print(f"WARNING: Directory {db_dir} is not writable")
-                # Try to make it writable
+            print(f"Trying database location: {location}")
+            db_dir = os.path.dirname(location)
+            if db_dir and not os.path.exists(db_dir):
                 try:
-                    current_permissions = os.stat(db_dir).st_mode
-                    os.chmod(db_dir, current_permissions | stat.S_IWUSR | stat.S_IWGRP)
-                    print(f"Attempted to make directory writable: {db_dir}")
+                    os.makedirs(db_dir, exist_ok=True)
+                    time.sleep(0.5)  # Brief pause to ensure filesystem sync
+                    print(f"Created directory: {db_dir}")
                 except Exception as e:
-                    print(f"Failed to update directory permissions: {e}")
-        except Exception as e:
-            print(f"Error with database directory: {e}")
-            return False
-    
-    # Create empty database file if it doesn't exist
-    try:
-        if not os.path.exists(db_path):
-            print(f"Creating database file: {db_path}")
-            open(db_path, 'a').close()
-            # Make file writable
+                    print(f"Could not create directory {db_dir}: {e}")
+                    continue
+            
+            # Test if we can write to this location
             try:
-                os.chmod(db_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP)
-                print(f"Set permissions on database file")
+                with open(location, 'a') as f:
+                    pass
+                print(f"Successfully wrote to {location}")
+                
+                # Location works, use it
+                db_path = location
+                break
             except Exception as e:
-                print(f"Failed to set permissions on database file: {e}")
-            print(f"Created empty database file: {db_path}")
-        else:
-            print(f"Database file already exists at: {db_path}")
-            # Check if file is writable
-            if os.access(db_path, os.W_OK):
-                print(f"Database file is writable")
-            else:
-                print(f"WARNING: Database file is not writable")
-                # Try to make it writable
-                try:
-                    os.chmod(db_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP)
-                    print(f"Attempted to make database file writable")
-                except Exception as e:
-                    print(f"Failed to update file permissions: {e}")
-        
-        # Test if we can connect to the database
-        print(f"Testing database connection")
+                print(f"Cannot write to {location}: {e}")
+                continue
+        except Exception as e:
+            print(f"Error testing location {location}: {e}")
+    
+    if not db_path:
+        print("ERROR: Could not find a writable database location")
+        return False
+    
+    print(f"Using database at: {db_path}")
+    
+    # Create users table
+    try:
+        print(f"Setting up database tables")
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
         # Check if users table exists
-        print(f"Checking if users table exists")
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
         result = cursor.fetchone()
         
@@ -84,15 +76,38 @@ def setup_database():
                     is_admin INTEGER DEFAULT 0
                 )
             ''')
-            
             # We'll add the default user in the app
             print("Created users table")
         else:
             print("Users table already exists")
         
+        # Also create a test table to verify write access
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS setup_test (
+                id INTEGER PRIMARY KEY,
+                timestamp TEXT
+            )
+        ''')
+        
+        # Add a test entry
+        import datetime
+        cursor.execute(
+            'INSERT INTO setup_test (timestamp) VALUES (?)',
+            [datetime.datetime.now().isoformat()]
+        )
+        
         conn.commit()
         conn.close()
-        print("Database setup completed successfully")
+        print(f"Database setup completed successfully at {db_path}")
+        
+        # Save the successful path to a file that can be read by the app
+        try:
+            with open('db_location.txt', 'w') as f:
+                f.write(db_path)
+            print(f"Saved database location to db_location.txt")
+        except Exception as e:
+            print(f"Could not save database location: {e}")
+        
         return True
     except Exception as e:
         print(f"Error setting up database: {e}")

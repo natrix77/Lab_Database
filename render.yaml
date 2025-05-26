@@ -12,12 +12,14 @@ services:
         value: 3.8.12
       - key: DATABASE_PATH
         value: /data/student_register.db
+      - key: RENDER
+        value: "1"
       - key: RENDER_DEBUG
-        value: 1
+        value: "1"
       - key: FLASK_DEBUG
-        value: 1
+        value: "1"
       - key: PYTHONUNBUFFERED
-        value: 1
+        value: "1"
     disk:
       name: data
       mountPath: /data
